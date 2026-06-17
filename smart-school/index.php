@@ -73,6 +73,9 @@ $router->group('/api', function (Router $api) {
         $student->post('/exams/start', $handlerExams);
         $student->get('/exams/{id}', $handlerExams);
         $student->post('/exams/{id}', $handlerExams);
+
+        $handlerNotifications = function(Request $req) { require __DIR__ . '/api/student/notifications.php'; };
+        $student->get('/notifications', $handlerNotifications);
     }, [AuthMiddleware::class, new RoleMiddleware('student')]);
 
     // Parent Routes
@@ -83,7 +86,8 @@ $router->group('/api', function (Router $api) {
         $parent->get('/children/{id}/grades', $handlerChildren);
         $parent->get('/children/{id}/attendance', $handlerChildren);
 
-        // Add more parent routes here later
+        $handlerNotifications = function(Request $req) { require __DIR__ . '/api/parent/notifications.php'; };
+        $parent->get('/notifications', $handlerNotifications);
     }, [AuthMiddleware::class, new RoleMiddleware('parent')]);
 
     // Teacher Routes

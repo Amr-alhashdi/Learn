@@ -62,7 +62,34 @@ class ApprovalService
             'approved_at'     => date('Y-m-d H:i:s')
         ], ['id' => $attendanceId]);
 
-        // TODO: trigger NotificationService
+        // Trigger notifications for absent students
+        $attDetails = $this->db->fetchOne(
+            "SELECT a.student_id, a.status, a.date, u.name as student_name 
+             FROM attendance a 
+             JOIN students s ON a.student_id = s.id 
+             JOIN users u ON s.user_id = u.id 
+             WHERE a.id = ?",
+            [$attendanceId]
+        );
+
+        if ($attDetails && $attDetails['status'] === 'absent') {
+            $notificationService = new NotificationService();
+            $studentName = $attDetails['student_name'];
+            $date = $attDetails['date'];
+            
+            $title = "تنبيه غياب طالب";
+            $body = "نود إحاطتكم علماً بأن ابنكم {$studentName} كان غائباً اليوم بتاريخ {$date}.";
+            
+            $notificationService->sendToParentsByStudentId(
+                (int)$attDetails['student_id'],
+                $title,
+                $body,
+                'absence',
+                'school',
+                'attendance',
+                $attendanceId
+            );
+        }
     }
 
     public function rejectAttendance(int $schoolId, int $attendanceId, int $adminUserId): void
@@ -121,7 +148,36 @@ class ApprovalService
             'approved_at'     => date('Y-m-d H:i:s')
         ], ['id' => $gradeId]);
 
-        // TODO: trigger NotificationService
+        // Trigger notifications for student and parent
+        $gradeDetails = $this->db->fetchOne(
+            "SELECT g.student_id, g.score, g.max_score, sub.name as subject_name, st.user_id as student_user_id, u.name as student_name
+             FROM grades g
+             JOIN students st ON g.student_id = st.id
+             JOIN users u ON st.user_id = u.id
+             JOIN subjects sub ON g.subject_id = sub.id
+             WHERE g.id = ?",
+            [$gradeId]
+        );
+
+        if ($gradeDetails) {
+            $notificationService = new NotificationService();
+            $studentUserId = (int)$gradeDetails['student_user_id'];
+            $studentId = (int)$gradeDetails['student_id'];
+            $subjectName = $gradeDetails['subject_name'];
+            $score = $gradeDetails['score'];
+            $maxScore = $gradeDetails['max_score'];
+            $studentName = $gradeDetails['student_name'];
+
+            // 1. Notify Student
+            $sTitle = "اعتماد درجات جديدة";
+            $sBody = "تم اعتماد درجتك في مادة {$subjectName}: {$score}/{$maxScore}.";
+            $notificationService->send($studentUserId, $sTitle, $sBody, 'grade', 'school', 'grade', $gradeId, $schoolId);
+
+            // 2. Notify Parent
+            $pTitle = "درجات جديدة معتمدة لابنكم";
+            $pBody = "تم اعتماد درجة ابنكم {$studentName} في مادة {$subjectName}: {$score}/{$maxScore}.";
+            $notificationService->sendToParentsByStudentId($studentId, $pTitle, $pBody, 'grade', 'school', 'grade', $gradeId);
+        }
     }
 
     public function rejectGrade(int $schoolId, int $gradeId, int $adminUserId): void
