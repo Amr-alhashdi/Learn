@@ -56,15 +56,24 @@ class Auth
         $config = self::config();
         $payload = self::decode($token, $config['secret']);
 
+        // Debug logging for 401 issues
+        $logFile = __DIR__ . '/../storage/logs/auth_debug.log';
+        $log = function($msg) use ($logFile) {
+            file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] " . $msg . PHP_EOL, FILE_APPEND);
+        };
+
         if (!$payload) {
+            $log("Token decode failed. Token starts with: " . substr($token, 0, 10));
             Response::unauthorized('Invalid token');
         }
 
         if (($payload['exp'] ?? 0) < time()) {
+            $log("Token expired. Exp: " . ($payload['exp'] ?? 0) . " Now: " . time());
             Response::unauthorized('Token expired');
         }
 
         if (($payload['type'] ?? '') !== 'access') {
+            $log("Invalid token type: " . ($payload['type'] ?? ''));
             Response::unauthorized('Invalid token type');
         }
 
@@ -81,7 +90,10 @@ class Auth
         }
 
         $token = $request->bearerToken();
+        $logFile = __DIR__ . '/../storage/logs/auth_debug.log';
         if (!$token) {
+            $authHeader = $request->header('authorization', 'MISSING');
+            file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] No token provided. Header: " . substr($authHeader, 0, 20) . PHP_EOL, FILE_APPEND);
             Response::unauthorized('No token provided');
         }
 

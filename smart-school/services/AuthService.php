@@ -23,8 +23,8 @@ class AuthService
     {
         // Identifier can be email or phone
         $user = $this->db->fetchOne(
-            "SELECT id, password_hash, role, is_active FROM users WHERE email = :id OR phone = :id LIMIT 1",
-            ['id' => $identifier]
+            "SELECT id, name, email, password_hash, role, is_active FROM users WHERE email = :id1 OR phone = :id2 LIMIT 1",
+            ['id1' => $identifier, 'id2' => $identifier]
         );
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
@@ -84,6 +84,8 @@ class AuthService
             'refresh_token' => $refreshToken,
             'user'          => [
                 'id'         => $user['id'],
+                'name'       => $user['name'],
+                'email'      => $user['email'],
                 'role'       => $user['role'],
                 'school_ids' => $schoolIds
             ]

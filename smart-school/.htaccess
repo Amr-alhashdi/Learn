@@ -1,5 +1,6 @@
 Options -Indexes
 RewriteEngine On
+CGIPassAuth On
 
 # Force HTTPS (uncomment in production)
 # RewriteCond %{HTTPS} off
@@ -17,7 +18,11 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Deny from all
 </FilesMatch>
 
+# Ensure Authorization header is passed to PHP
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Route all requests to index.php
+RewriteBase /Learn/smart-school/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [QSA,L]
+RewriteRule ^(.*)$ index.php [QSA,L]

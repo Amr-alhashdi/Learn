@@ -20,8 +20,11 @@ class ClassService
     // -------------------------------------------------------
     // Grade Levels Management
     // -------------------------------------------------------
-    public function getGrades(int $schoolId): array
+    public function getGrades(?int $schoolId): array
     {
+        if ($schoolId === null) {
+            return $this->db->fetchAll("SELECT * FROM grade_levels ORDER BY school_id, order_num ASC");
+        }
         return $this->db->fetchAll("SELECT * FROM grade_levels WHERE school_id = ? ORDER BY order_num ASC", [$schoolId]);
     }
 

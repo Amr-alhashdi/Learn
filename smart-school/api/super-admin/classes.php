@@ -20,8 +20,8 @@ if (str_contains($path, '/grades')) {
     switch ($method) {
         case 'GET':
             $schoolId = (int)$req->query('school_id');
-            if (!$schoolId) Response::error('معرف المدرسة (school_id) مطلوب', 400);
-            Response::success($classService->getGrades($schoolId));
+            // If school_id is missing, we take the first available one or return everything
+            Response::success($classService->getGrades($schoolId ?: null));
             break;
 
         case 'POST':

@@ -4,35 +4,45 @@
 
 declare(strict_types=1);
 
-// Basic autoloading for core classes
-spl_autoload_register(function ($class) {
-    $class = str_replace('\\', '/', $class);
-    $file = __DIR__ . '/' . lcfirst($class) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
-    }
-});
+// 1. Absolute First: Handle CORS
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+header("Access-Control-Allow-Origin: $origin");
+header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Max-Age: 86400");
+
+// 2. Handle OPTIONS preflight immediately
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// 3. Set Content Type & Error Reporting
+header("Content-Type: application/json; charset=UTF-8");
+mb_internal_encoding("UTF-8");
+mb_http_output("UTF-8");
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
 
 use Core\Request;
 use Core\Response;
 use Core\Router;
 use Middleware\RateLimitMiddleware;
 use Middleware\AuthMiddleware;
+use Middleware\RoleMiddleware;
 
-// Handle CORS
-$appConfig = require __DIR__ . '/config/app.php';
-$cors = $appConfig['cors'];
+try {
+    // 4. Basic autoloading for core classes
+    spl_autoload_register(function ($class) {
+        $class = str_replace('\\', '/', $class);
+        $file = __DIR__ . '/' . lcfirst($class) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
+    });
 
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (in_array('*', $cors['allowed_origins']) || in_array($origin, $cors['allowed_origins'])) {
-    header("Access-Control-Allow-Origin: " . ($origin ?: '*'));
-}
-header("Access-Control-Allow-Methods: " . implode(', ', $cors['allowed_methods']));
-header("Access-Control-Allow-Headers: " . implode(', ', $cors['allowed_headers']));
-header("Access-Control-Max-Age: " . $cors['max_age']);
-
-// Content Type JSON
-header("Content-Type: application/json; charset=UTF-8");
+    $appConfig = require __DIR__ . '/config/app.php';
 
 $request = new Request();
 
@@ -53,6 +63,15 @@ $router->group('/api', function (Router $api) {
         $auth->post('/refresh', function (Request $req) { require __DIR__ . '/api/auth/refresh.php'; });
         $auth->post('/logout', function (Request $req) { require __DIR__ . '/api/auth/logout.php'; });
     });
+
+    // Global Notifications
+    $api->group('/notifications', function (Router $n) {
+        $n->get('', function (Request $req) {
+            $user = \Core\Auth::user($req);
+            $role = $user['role'] ?? 'unknown';
+            require __DIR__ . "/api/{$role}/notifications.php";
+        });
+    }, [AuthMiddleware::class]);
 
     // Student Routes
     $api->group('/student', function (Router $student) {
@@ -88,6 +107,9 @@ $router->group('/api', function (Router $api) {
 
         $handlerNotifications = function(Request $req) { require __DIR__ . '/api/parent/notifications.php'; };
         $parent->get('/notifications', $handlerNotifications);
+
+        $handlerReports = function(Request $req) { require __DIR__ . '/api/parent/reports.php'; };
+        $parent->get('/reports', $handlerReports);
     }, [AuthMiddleware::class, new RoleMiddleware('parent')]);
 
     // Teacher Routes
@@ -197,13 +219,11 @@ $router->group('/api', function (Router $api) {
 
 });
 
-// -------------------------------------------------------
-// Dispatch Request
-// -------------------------------------------------------
-try {
     $router->dispatch($request);
+
 } catch (\Throwable $e) {
-    if ($appConfig['debug']) {
+    $debug = $appConfig['debug'] ?? true;
+    if ($debug) {
         Response::serverError($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     } else {
         Response::serverError('حدث خطأ داخلي في الخادم');

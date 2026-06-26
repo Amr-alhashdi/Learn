@@ -5,8 +5,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> f4f84605715c9570c2ca9f9a5c61444b65197116
 # Security settings
 SECRET_KEY = os.environ.get("AI_SECRET_KEY", "internal-ai-secret")
 

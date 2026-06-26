@@ -93,7 +93,12 @@ class Router
 
             // Run middleware chain
             foreach ($route['middleware'] as $mw) {
-                (new $mw())->handle($request);
+                if (is_string($mw)) {
+                    $mwInstance = new $mw();
+                } else {
+                    $mwInstance = $mw;
+                }
+                $mwInstance->handle($request);
             }
 
             // Call handler
